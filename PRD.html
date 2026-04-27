@@ -1,0 +1,535 @@
+PRODUCT REQUIREMENTS DOCUMENT
+OpenRouter Model Intelligence Platform
+A developer-facing platform to track model changes, discover the best model for any use case, estimate costs, and monitor trends — built on top of the OpenRouter public API.
+v1.0  •  April 2026  •  Prepared for OpenRouter
+
+Field
+Detail
+Author
+[Your Name]
+Target Company
+OpenRouter (openrouter.ai)
+Document Type
+Product Requirements Document (PRD)
+Version
+1.0 — Initial pitch build
+Status
+Ready for review
+Primary Stack
+React 18, TypeScript, Vite, Tailwind CSS, Claude API, OpenRouter /models API
+Build Estimate
+3–5 days (solo), production-ready MVP
+
+
+1. Executive Summary
+OpenRouter serves 2.5M+ developers with access to 400+ large language models from 60+ providers through a single API endpoint. It is one of the fastest-growing infrastructure platforms in the AI ecosystem, with $100M+ in annualized inference spend as of May 2025.
+
+Despite this scale, the developer experience around model discovery, change management, and cost planning remains weak. Developers routinely face three pain points:
+
+	•	Broken production apps from silent model ID and pricing changes
+	•	No intelligent way to discover which model is best for their specific use case
+	•	Opaque cost math that makes it hard to forecast monthly AI spend
+
+What this document proposes
+A four-feature web platform — Model Tracker, AI Recommender, Cost Estimator, and Trends Dashboard — built entirely on OpenRouter’s existing public API. This is the developer experience layer OpenRouter hasn’t built yet. It solves their users’ loudest complaints and could be embedded directly into the OpenRouter dashboard or shipped as a standalone product.
+
+2. Problem Statement
+2.1 Background & Context
+OpenRouter acts as a unified LLM gateway — developers integrate once, then access hundreds of models. The core proposition is simplicity. However, three gaps in the current product are creating significant developer frustration, all validated by public complaints on Trustpilot, Reddit, and the OpenRouter Discord.
+
+2.2 Pain Points (Validated)
+Pain Point #1 — Silent model ID changes breaking production apps
+OpenRouter frequently updates model IDs, deprecates old versions, and onboards new models. There is no structured changelog, no webhook system, and no alerting mechanism. Developers discover breakages only when their app throws an "invalid model ID" error in production.
+Source: Top complaint on Trustpilot reviews (April 2025). Verbatim: "I HAVE A PROBLEM WHERE THEY KEEP CHANGING THE MODEL IDs, SO MY APP RETURNS AN ERROR."
+
+Pain Point #2 — No intelligent model discovery
+With 400+ models across dozens of providers, choosing the right model for a specific use case is a manual, time-consuming process. The OpenRouter catalog is a flat list with filtering but no ranked recommendations based on use case context, priority weights (quality vs speed vs cost), or community usage signals.
+Source: OpenRouter investor memo (Menlo Ventures, June 2025) cites this as a top developer request.
+
+Pain Point #3 — Opaque pricing and cost forecasting
+Developers building at scale need to know: "If I run this prompt 10,000 times a month, what will it cost me across different models?" This calculation requires combining input token count, output token estimates, per-model pricing, and volume — none of which is surfaced together in any current OpenRouter UI.
+Source: Multiple Reddit threads on r/LocalLLM and r/MachineLearning (2024–2025).
+
+Pain Point #4 — No signal on what’s trending
+Developers want to know which models the community is using, which providers are reliable, how prices are trending over time, and when new models arrive. None of this data is currently surfaced in a meaningful way on the OpenRouter platform.
+
+3. Solution Overview
+The OpenRouter Model Intelligence Platform is a single-page web application with four integrated tools, all powered by OpenRouter’s existing public API plus the Anthropic Claude API for AI-powered features. No custom backend is required for the MVP.
+
+Module
+Core Function
+Key Output
+API Used
+Model Tracker
+Live model index with change detection
+Changelog + copy-ready model IDs
+OpenRouter /api/v1/models
+AI Recommender
+Use-case-driven model ranking
+Top 4 models with reasoning & scores
+Claude API + OpenRouter /models
+Cost Estimator
+Per-prompt cost across all models
+Monthly cost table + CSV export
+OpenRouter /models pricing data
+Trends Dashboard
+Model launches, provider stats, price history
+Charts + new arrival feed
+OpenRouter /models (aggregated)
+
+4. Feature Specifications
+4.1 Module 1: Model Tracker
+The Model Tracker is the core feature — a live, searchable index of all models on the OpenRouter platform with automatic change detection between sessions.
+
+4.1.1 Live Model Index
+	•	Fetches the full model list from GET /api/v1/models on every page load
+	•	Displays: model name, canonical model ID, provider, context window, input price per 1M tokens, output price per 1M tokens, status badge
+	•	Status badges: New (green) / Changed (amber) / Stable (gray) / Deprecated (red)
+	•	Search bar filters across model name, ID, and provider simultaneously
+	•	Provider dropdown filter pulls unique providers from the live model list
+	•	Status filter: All / New / Changed / Stable
+
+4.1.2 Change Detection Engine
+	•	On each page load, compares the current model list against a snapshot stored in localStorage
+	•	Detects: Detects and surfaces three change types:
+	•	New model added — model ID present now but not in previous snapshot
+	•	Price change — input or output pricing has changed for an existing model
+	•	Model removed — model ID in previous snapshot but not in current list
+	•	Renders a prominently visible alert bar and a Recent Changes panel when any changes are detected
+	•	Stores the new snapshot to localStorage after rendering, replacing the old one
+	•	Changes panel shows: type, model name, detail (e.g. price before → after), timestamp
+
+4.1.3 One-Click Model ID Copy
+	•	Every model row has a "copy id" button
+	•	Clicking the model ID string itself also copies it
+	•	Button shows "copied!" confirmation for 1.5 seconds, then resets
+	•	Copies the full canonical ID string (e.g. anthropic/claude-sonnet-4-5)
+
+4.1.4 Changelog Export
+	•	"Export changelog" button in the page header
+	•	Exports detected changes as a CSV: Type, Model, Detail columns
+	•	Filename: openrouter-changes-[date].csv
+
+4.1.5 Stats Row
+Four stat cards displayed above the table:
+	•	Total models — count of all models in the current API response
+	•	New this week — count of models with "new" status badge
+	•	Price changes — count of models with "changed" status badge
+	•	Providers — count of unique providers in the current model list
+
+4.2 Module 2: AI Model Recommender
+Powered by the Claude API, the Recommender takes a plain-English use case description and returns ranked model recommendations with reasoning and scores.
+
+4.2.1 Use Case Input
+	•	Freeform textarea: user describes what they’re building in natural language
+	•	Quick preset chips for common use cases: Code gen, Support bot, Long doc summary, Creative writing, Data extraction, RAG / Q&A
+	•	Priority sliders (0–10) for three dimensions: Quality, Speed, Cost efficiency
+	•	Slider values are passed directly into the AI prompt
+
+4.2.2 AI Ranking Engine
+	•	On submit, builds a structured prompt to Claude claude-sonnet-4-20250514
+	•	Prompt includes: user’s use case text, priority scores, and the first 30 models from the live OpenRouter model list with their IDs, context windows, and prices
+	•	Instructs Claude to return exactly 4 ranked recommendations as a strict JSON array
+	•	Each recommendation includes: rank, model name, model ID, 2-sentence reasoning, and three integer scores (quality, speed, cost) on a 0–10 scale
+	•	Falls back to hardcoded sample recommendations if the Claude API call fails
+
+4.2.3 Results Display
+	•	Renders all 4 recommendations in ranked order
+	•	Each card shows: rank number, model name, canonical ID, reasoning text
+	•	Three horizontal bar charts per card: quality (indigo), speed (teal), cost (green)
+	•	One-click copy model ID button on each recommendation card
+
+4.3 Module 3: Cost Estimator
+Gives developers exact cost projections for their specific prompt and usage volume across all models that fit their budget.
+
+4.3.1 Inputs
+	•	Prompt textarea: user pastes their actual prompt or a representative sample
+	•	Live token counter: updates on every keystroke using the formula Math.ceil(text.length / 4)
+	•	Monthly volume: number of API requests per month (default: 10,000)
+	•	Average output tokens per response (default: 500)
+	•	Maximum monthly budget in USD (used to filter results)
+
+4.3.2 Cost Calculation
+	•	For each model in the live model list with valid pricing data:
+	•	Input cost = prompt_tokens × input_price_per_token
+	•	Output cost = avg_output_tokens × output_price_per_token
+	•	Per-request cost = input_cost + output_cost
+	•	Monthly cost = per_request_cost × monthly_volume
+	•	Yearly cost = monthly_cost × 12
+	•	Filters out models with no pricing data or cost exceeding the user’s max budget
+	•	Sorts results ascending by monthly cost (cheapest first)
+	•	Shows top 15 results
+
+4.3.3 Results Display
+	•	Table with columns: Model name, Per-request cost, Monthly cost, Yearly cost
+	•	First row (cheapest) is highlighted with a "best value" badge in green
+	•	"Export CSV" button downloads the full cost table
+	•	Filename: openrouter-cost-estimate.csv
+
+4.4 Module 4: Trends Dashboard
+Visualises patterns across the OpenRouter model catalog to help developers understand the ecosystem at a glance.
+
+4.4.1 Charts (4 panels in a 2×2 grid)
+	•	New models per month: Bar chart showing model launch cadence over the past 7 months. Heights calculated from the live model count
+	•	Models by provider: Horizontal bar chart showing model count per provider, sorted descending. Derived from live model list by parsing provider prefix from model ID
+	•	Avg price trend: Bar chart showing approximate industry-wide input token prices over 7 months. Values are curated reference data showing the documented downward trend in LLM pricing
+	•	Context window distribution: Horizontal bar chart grouping all models into four buckets: <32k / 32–128k / 128k–1M / >1M tokens
+
+4.4.2 New Model Arrivals Feed
+	•	Lists all models currently flagged as "new" status
+	•	Each item shows: model name, canonical ID, context window, input price
+	•	One-click copy ID button per item
+	•	Badge showing total new model count
+
+5. Technical Specification
+5.1 Tech Stack
+Layer
+Technology
+Version
+Rationale
+Framework
+React
+18.x
+Industry standard, OpenRouter’s own dashboard uses React
+Language
+TypeScript
+5.x
+Type safety for API responses, prevents model ID bugs
+Build tool
+Vite
+5.x
+Fast HMR, minimal config, ideal for single-page apps
+Styling
+Tailwind CSS
+3.x
+Utility-first, dark mode built-in, rapid iteration
+AI layer
+Anthropic Claude API
+claude-sonnet-4-20250514
+Powers the model recommender with structured JSON output
+Data source
+OpenRouter /api/v1/models
+Public, no auth
+Live model catalog — always up to date
+State
+React useState + useEffect
+—
+No Redux needed for MVP scope
+Persistence
+localStorage
+—
+Change detection snapshot, no backend required
+Icons
+Lucide React
+0.383.0
+Consistent iconography, tree-shakeable
+Charts
+Recharts
+Latest
+Simple bar/line charts with responsive containers
+Deployment
+Vercel or Netlify
+—
+One-command deploy, free tier, custom domain
+
+5.2 Project Structure
+src/
+  components/
+    Layout/Sidebar.tsx         # Nav + status indicator
+    Layout/PageHeader.tsx      # Title + action buttons
+    Tracker/ModelTable.tsx     # Searchable model rows
+    Tracker/ChangeDetector.ts  # localStorage diff logic
+    Tracker/StatsRow.tsx       # 4 stat cards
+    Recommender/UseCaseForm.tsx
+    Recommender/ResultsPanel.tsx
+    CostEstimator/InputForm.tsx
+    CostEstimator/CostTable.tsx
+    Trends/ChartGrid.tsx
+    Trends/ArrivalsFeed.tsx
+  lib/
+    openrouter.ts              # GET /api/v1/models wrapper
+    claude.ts                  # Claude API call + JSON parse
+    tokenizer.ts               # Simple token estimator
+    export.ts                  # CSV download utilities
+  types/
+    openrouter.d.ts            # Model, Pricing interfaces
+  App.tsx                      # Route/page switching
+  main.tsx
+
+5.3 Key API Integrations
+OpenRouter Public Models API
+Endpoint:   GET https://openrouter.ai/api/v1/models
+Auth:       None required (public endpoint)
+Response:   { data: Model[] }
+
+Model shape:
+  id:              string   // e.g. "anthropic/claude-sonnet-4-5"
+  name:            string   // e.g. "Claude Sonnet 4.5"
+  context_length:  number   // max tokens
+  pricing: {
+    prompt:        string   // cost per token (input)
+    completion:    string   // cost per token (output)
+  }
+
+Anthropic Claude API (Recommender)
+Endpoint:   POST https://api.anthropic.com/v1/messages
+Model:      claude-sonnet-4-20250514
+max_tokens: 1000
+
+System:     You are an expert AI model advisor for OpenRouter...
+User:       Use case: {description}
+            Priorities: Quality={q}, Speed={s}, Cost={c}
+            Available models: [{id, name, context, price}...]
+            Return ONLY a JSON array of 4 objects: [{rank, name,
+            id, reason, quality, speed, cost}]
+
+Note: API key is set via VITE_ANTHROPIC_API_KEY env variable.
+      In production: proxy through an edge function (Vercel/CF).
+
+5.4 Change Detection Algorithm
+The core logic of the Model Tracker runs entirely client-side with no server required:
+
+// On every page load:
+const freshModels = await fetchOpenRouterModels();
+const snapshot = localStorage.getItem('or_snapshot');
+
+if (snapshot) {
+  const prev = JSON.parse(snapshot);
+  const changes = [];
+
+  freshModels.forEach(m => {
+    if (!prev[m.id]) {
+      changes.push({ type: 'new', model: m.name });
+    } else if (prev[m.id].price !== m.pricing.prompt) {
+      changes.push({ type: 'price', model: m.name,
+        from: prev[m.id].price, to: m.pricing.prompt });
+    }
+  });
+
+  Object.keys(prev).forEach(id => {
+    if (!freshModels.find(m => m.id === id))
+      changes.push({ type: 'removed', model: id });
+  });
+
+  if (changes.length) renderChangesAlert(changes);
+}
+
+// Save new snapshot
+const newSnapshot = {};
+freshModels.forEach(m => {
+  newSnapshot[m.id] = { price: m.pricing.prompt, ctx: m.context_length };
+});
+localStorage.setItem('or_snapshot', JSON.stringify(newSnapshot));
+
+
+6. UI / UX Design Spec
+6.1 Design Direction
+Dark mode by default. Terminal-inspired aesthetic with clean monospace typography, reflecting the developer audience. Indigo as the primary accent. High information density without clutter.
+
+6.2 Typography
+Element
+Font
+Size
+Weight
+Color
+Logo / Brand
+Syne
+13px
+700
+White
+Page title
+Syne
+18px
+700
+White
+Section headings
+Syne
+13px
+600
+White
+Body / labels
+DM Mono
+12px
+400
+#8888A0
+Model names
+DM Mono
+12px
+500
+#E8E8F0
+Model IDs
+DM Mono
+10px
+400
+#4A4A60
+Stat values
+Syne
+26px
+700
+White
+Code blocks
+DM Mono
+11px
+400
+#A5B4FC
+
+6.3 Color Palette
+Token
+Value
+Usage
+--bg
+#0A0A0F
+Page background
+--bg2
+#111118
+Cards, panels, sidebar
+--bg3
+#18181F
+Input fields, code blocks
+--border
+rgba(255,255,255,0.07)
+Default borders
+--accent
+#6366F1
+Primary action, active states
+--accent2
+#818CF8
+Hover, links, icon accents
+--green
+#10B981
+Success, new status, best value
+--amber
+#F59E0B
+Warning, changed status
+--red
+#EF4444
+Error, deprecated status
+--teal
+#14B8A6
+Speed bars, secondary charts
+
+6.4 Component Library
+	•	Sidebar: Fixed left, 220px, dark background, nav items with left-border active state
+	•	Page header: Sticky top, contains page title + subtitle + action buttons
+	•	Stat cards: 4-column grid, dark bg, large number + label + change indicator
+	•	Model table: Full-width, alternating row hover, 6 columns with right-aligned copy button
+	•	Callout boxes: Left-border accent, color-coded by type (info/warning/success)
+	•	Change items: Timeline-style with colored dot indicators and timestamp
+	•	Bar charts: Native HTML/CSS bars, no heavy chart library for simple cases
+	•	Buttons: Monospace font, border-based default, filled accent for primary actions
+	•	Copy button: Inline confirmation animation (1.5s) with border color change
+
+7. Non-Functional Requirements
+Requirement
+Target
+Implementation approach
+Initial load time
+< 1.5 seconds
+Vite production build, lazy-load non-critical modules
+API response handling
+Graceful fallback
+Sample data renders if /models fetch fails
+Lighthouse score
+> 90 all categories
+Semantic HTML, no layout shift, proper alt text
+Mobile responsiveness
+Readable at 375px
+Tailwind responsive classes, horizontal scroll for tables
+API key security
+Key never in client bundle
+Vite env vars + Vercel edge function proxy in prod
+Accessibility
+WCAG 2.1 AA
+Proper contrast ratios, keyboard navigation, focus states
+Browser support
+Chrome, Firefox, Safari (last 2 major)
+No experimental CSS, standard APIs only
+localStorage limit
+Graceful degradation
+Try/catch on all localStorage ops, fallback to no-diff mode
+
+8. Scope
+8.1 In Scope (MVP)
+	•	All four modules as described in Section 4
+	•	Client-side change detection via localStorage
+	•	Claude API integration for Recommender (proxied via edge function)
+	•	CSV export for Changelog and Cost Estimator
+	•	Responsive layout (desktop-first, mobile-readable)
+	•	Deployed to Vercel with a public URL
+	•	README with setup instructions
+
+8.2 Not In Scope (v1)
+	•	User accounts or authentication
+	•	Email/webhook alerts for model changes (post-MVP: could use Resend + Vercel Cron)
+	•	Prompt playground / live model testing
+	•	Historical price data (API doesn’t expose it; would need a separate scraper + DB)
+	•	Team/org features
+	•	Native mobile app
+
+9. Pitch Strategy
+9.1 Why OpenRouter Would Want This
+OpenRouter’s top-line metric is developer retention and inference spend. Both are damaged when developers leave because of broken apps (model ID changes) or confusion about which model to use. This platform directly addresses both. It also creates a stickiness surface — developers return to check the tracker, which reinforces OpenRouter as their primary model gateway.
+
+The pitch angle
+"I noticed your #1 Trustpilot complaint is broken apps from model ID changes. I built the tool that fixes that — and three more things your developers have been asking for. Here’s a Loom walkthrough. I built this solo in 3 days. I’d love to do this full-time for you."
+
+9.2 Loom Video Script (3 minutes)
+Timestamp
+Content
+0:00 – 0:20
+Hook: Show a real Trustpilot complaint about model ID errors. "This is your #1 complaint. I built the fix."
+0:20 – 1:00
+Model Tracker: Show the live table, demonstrate copy-ID, trigger a simulated change to show the alert bar
+1:00 – 1:45
+AI Recommender: Type a real use case, hit submit, show Claude ranking models with reasoning in real-time
+1:45 – 2:20
+Cost Estimator: Paste a real GPT-4o-style prompt, show cost comparison across models, export CSV
+2:20 – 2:45
+Trends: Walk through the charts, new arrivals feed, provider distribution
+2:45 – 3:00
+Close: "This is what I’d build as part of your team. Here’s the GitHub link. Happy to hop on a call."
+
+9.3 Cold Outreach Template
+Subject: I built the tool that fixes your #1 developer complaint
+Hi [Name],
+I’m a developer who uses OpenRouter and noticed the #1 complaint from your users: apps breaking silently when model IDs change. So I built a fix — and went further.
+In 3 days I shipped the OpenRouter Model Intelligence Platform — a live model tracker with automatic change detection, an AI-powered model recommender, a cost estimator, and a trends dashboard. All built on your public API.
+3-min Loom: [link]  |  Live demo: [link]  |  GitHub: [link]
+I’m looking to join a team like OpenRouter where I can build things that matter. Would love 15 minutes to show you what I built.
+[Your name]
+
+9.4 Where to Send It
+	•	Alex Atallah (CEO) — @atallah on X/Twitter. Posts regularly, replies to builders
+	•	Chris Clark (COO) — LinkedIn, active on professional content
+	•	OpenRouter Discord — #show-and-tell channel, community loves builders
+	•	LinkedIn DM to any OpenRouter engineer or PM you can find
+
+10. Build Plan
+Day
+Task
+Output
+Day 1 (AM)
+Scaffold React + Vite + TypeScript + Tailwind. Build layout: sidebar, header, page switcher
+Running shell with navigation
+Day 1 (PM)
+Implement OpenRouter API fetch. Build Model Tracker: table, search, filter, stat cards
+Fully working Module 1
+Day 2 (AM)
+Add localStorage change detection. Render change alert + changelog panel. Add CSV export
+Change detection live
+Day 2 (PM)
+Build AI Recommender: form, Claude API call, results panel with score bars
+Module 2 complete
+Day 3 (AM)
+Build Cost Estimator: token counter, calculation engine, cost table, CSV export
+Module 3 complete
+Day 3 (PM)
+Build Trends dashboard: 4 charts, arrivals feed. Polish UI. Deploy to Vercel
+All 4 modules live
+Day 4
+Record Loom. Write README. Craft cold pitch. Send to OpenRouter
+Pitch sent
+
+This is a working MVP, not a concept.
+Built to solve real problems OpenRouter’s users are screaming about.
+Prepared by [Your Name] — April 2026
