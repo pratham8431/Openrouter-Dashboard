@@ -1,0 +1,9 @@
+{
+  "email": "you@example.com",
+  "watchedModels": [
+    "anthropic/claude-sonnet-4-5",
+    "openai/gpt-4o"
+  ],
+  "gmailUser": "you@gmail.com",
+  "gmailAppPassword": "xxxx xxxx xxxx xxxx"
+}

@@ -9,6 +9,7 @@ export interface Model {
   context_length: number
   pricing: Pricing
   description?: string
+  created?: number  // Unix timestamp from OpenRouter API
   architecture?: {
     modality?: string
     tokenizer?: string
@@ -18,6 +19,7 @@ export interface Model {
 export interface ModelChange {
   type: 'new' | 'price' | 'removed'
   model: string
+  modelId?: string
   detail?: string
   timestamp: string
 }
@@ -49,4 +51,22 @@ export interface Priorities {
   quality: number
   speed: number
   cost: number
+}
+
+export interface WatchRule {
+  modelId: string
+  useCase: string
+  priorities: Priorities
+  priceThreshold?: number  // $/M tokens — alert if price exceeds this
+  triggerOnRemoval: boolean
+}
+
+export interface FallbackResult {
+  modelId: string
+  modelName: string
+  reason: string
+  quality: number
+  speed: number
+  cost: number
+  monthlyEstimate?: number
 }
