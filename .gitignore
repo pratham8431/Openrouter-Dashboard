@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Cron agent — sensitive config and auto-generated snapshot
+cron/config.json
+cron/snapshot.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
