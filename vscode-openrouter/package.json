@@ -1,0 +1,52 @@
+{
+  "name": "openrouter-intelligence",
+  "displayName": "OpenRouter Intelligence",
+  "description": "Inline AI model monitoring, cost analysis, and auto-switch recommendations powered by OpenRouter",
+  "version": "0.0.1",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other", "Linters"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "openrouter.scanWorkspace",
+        "title": "OR Intelligence: Scan Workspace for AI Costs"
+      },
+      {
+        "command": "openrouter.refreshModels",
+        "title": "OR Intelligence: Refresh Model Catalog"
+      }
+    ],
+    "configuration": {
+      "title": "OpenRouter Intelligence",
+      "properties": {
+        "openrouter.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API key for fallback recommendations"
+        },
+        "openrouter.monthlyRequestVolume": {
+          "type": "number",
+          "default": 10000,
+          "description": "Monthly request volume for cost estimates"
+        },
+        "openrouter.avgOutputTokens": {
+          "type": "number",
+          "default": 500,
+          "description": "Average output tokens per request for cost estimates"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npm run compile && vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

@@ -7,11 +7,15 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "watch": "node cron/scheduler.js",
+    "watch:6h": "INTERVAL=\"0 */6 * * *\" node cron/scheduler.js",
+    "watch:daily": "INTERVAL=\"0 9 * * *\" node cron/scheduler.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
     "lucide-react": "^1.11.0",
+    "node-cron": "^4.2.1",
     "nodemailer": "^8.0.7",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
