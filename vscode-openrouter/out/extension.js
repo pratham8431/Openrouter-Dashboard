@@ -39,21 +39,26 @@ const vscode = __importStar(require("vscode"));
 const modelCache_1 = require("./lib/modelCache");
 const diagnostics_1 = require("./providers/diagnostics");
 const hover_1 = require("./providers/hover");
+const completion_1 = require("./providers/completion");
+const codeAction_1 = require("./providers/codeAction");
+const costScanner_1 = require("./panels/costScanner");
 async function activate(context) {
-    // Fetch live model catalog on activation
     await (0, modelCache_1.initCache)(context);
-    // Register hover provider for all languages
+    // Feature 2 — hover tooltips (all file types)
     context.subscriptions.push(vscode.languages.registerHoverProvider({ scheme: 'file' }, (0, hover_1.createHoverProvider)(context)));
-    // Run diagnostics on the currently open editors
+    // Feature 4 — model ID autocomplete (all file types, trigger on quotes)
+    context.subscriptions.push(vscode.languages.registerCompletionItemProvider({ scheme: 'file' }, completion_1.completionProvider, '"', "'", '`'));
+    // Feature 5 — right-click "Replace model" code action + backing command
+    context.subscriptions.push(vscode.languages.registerCodeActionsProvider({ scheme: 'file' }, codeAction_1.codeActionProvider, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix.append('openrouter')] }), (0, codeAction_1.registerReplaceModelCommand)(context));
+    // Feature 1 — diagnostics: run on already-open editors
     for (const editor of vscode.window.visibleTextEditors) {
         (0, diagnostics_1.updateDiagnostics)(editor.document, context);
     }
-    // Re-run diagnostics when a file is opened or saved
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(doc => (0, diagnostics_1.updateDiagnostics)(doc, context)), vscode.workspace.onDidSaveTextDocument(doc => (0, diagnostics_1.updateDiagnostics)(doc, context)), vscode.window.onDidChangeActiveTextEditor(editor => {
         if (editor)
             (0, diagnostics_1.updateDiagnostics)(editor.document, context);
     }));
-    // Command: refresh model catalog manually
+    // Command — manual catalog refresh
     context.subscriptions.push(vscode.commands.registerCommand('openrouter.refreshModels', async () => {
         await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'OR Intelligence: refreshing model catalog…' }, async () => {
             await (0, modelCache_1.forceRefresh)(context);
@@ -63,11 +68,8 @@ async function activate(context) {
         });
         vscode.window.showInformationMessage('OR Intelligence: model catalog refreshed.');
     }));
-    // Placeholder command for Feature 3 (workspace cost scanner) — registered so the
-    // command palette doesn't show an error; full implementation comes next.
-    context.subscriptions.push(vscode.commands.registerCommand('openrouter.scanWorkspace', () => {
-        vscode.window.showInformationMessage('OR Intelligence: Workspace Cost Scanner coming soon (Feature 3).');
-    }));
+    // Feature 3 — workspace cost scanner
+    context.subscriptions.push(vscode.commands.registerCommand('openrouter.scanWorkspace', () => (0, costScanner_1.runWorkspaceCostScan)(context)));
     context.subscriptions.push(diagnostics_1.diagnosticCollection);
 }
 function deactivate() {

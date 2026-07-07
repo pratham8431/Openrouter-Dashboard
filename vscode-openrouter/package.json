@@ -16,8 +16,21 @@
       {
         "command": "openrouter.refreshModels",
         "title": "OR Intelligence: Refresh Model Catalog"
+      },
+      {
+        "command": "openrouter.replaceModel",
+        "title": "OR Intelligence: Replace Model"
       }
     ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "openrouter.replaceModel",
+          "group": "openrouter@1",
+          "when": "editorHasSelection || editorTextFocus"
+        }
+      ]
+    },
     "configuration": {
       "title": "OpenRouter Intelligence",
       "properties": {
