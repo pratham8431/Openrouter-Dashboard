@@ -16,6 +16,10 @@ dist-ssr
 cron/config.json
 cron/snapshot.json
 
+# Public-repo scanner — auto-generated report and file cache
+scanner/report.json
+scanner/.cache/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "watch": "node cron/scheduler.js",
     "watch:6h": "INTERVAL=\"0 */6 * * *\" node cron/scheduler.js",
-    "watch:daily": "INTERVAL=\"0 9 * * *\" node cron/scheduler.js"
+    "watch:daily": "INTERVAL=\"0 9 * * *\" node cron/scheduler.js",
+    "scan:repos": "node scanner/scan.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
